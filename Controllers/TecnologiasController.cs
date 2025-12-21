@@ -54,4 +54,40 @@ public class TecnologiasController : ControllerBase
 
         return CreatedAtAction(nameof(GetTecnologias), new { id = tecnologia.Id }, resultado);
     }
+
+    //PUT: api/tecnologias/5
+    [HttpPut("{id}")]
+    public async Task<IActionResult> PutTecnologia(int id, TecnologiaDTO tecnologiaDTO)
+    {
+        var tecnologiaEnDb = await _context.Tecnologias.FindAsync(id);
+        if (tecnologiaEnDb == null) return NotFound("La tecnología no existe");
+
+        //VAlidar que el nuevo nombre no lo tenga otra tecnologia ya existente
+
+        if (await _context.Tecnologias.AnyAsync(t => t.Nombre.ToLower() == tecnologiaDTO.Nombre.ToLower() && t.Id != id))
+        {
+            return BadRequest("Ya existe una tecnolgía con ese nombre.");
+        }
+
+        tecnologiaEnDb.Nombre = tecnologiaDTO.Nombre;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { mensaje = "Tecnología actualizada correctamente." });
+    }
+
+    //DELETE: api/tecnologias/id
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteTecnologia(int id)
+    {
+        var tecnologia = await _context.Tecnologias.FindAsync(id);
+        if (tecnologia == null) return NotFound("La tenología no se encontro.");
+
+        _context.Tecnologias.Remove(tecnologia);
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            mensaje = $"La tecnología '{tecnologia.Nombre}' ha sido eliminada correctamente."
+        });
+    }
 }

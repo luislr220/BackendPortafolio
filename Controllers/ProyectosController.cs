@@ -66,8 +66,6 @@ public class ProyectosController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        // 3. Mapear del Modelo al DTO de lectura para la respuesta final
-        // Aquí es donde convertimos lo que guardamos en lo que el Front quiere leer
         var respuesta = new ProyectoReadDto
         {
             Id = proyecto.Id,
@@ -75,10 +73,8 @@ public class ProyectosController : ControllerBase
             Descripcion = proyecto.Descripcion,
             UrlRepositorio = proyecto.UrlRepositorio,
             UrlDemo = proyecto.UrlDemo
-            // Aquí podrías incluir los nombres de las tecnologías si haces un Include
         };
 
-        // Devolvemos un status 201 (Created) con el objeto de lectura
         return CreatedAtAction(nameof(GetProyectos), new { id = proyecto.Id }, respuesta);
     }
 
