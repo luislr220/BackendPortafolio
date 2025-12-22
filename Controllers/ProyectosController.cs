@@ -1,5 +1,6 @@
 using BackendPortafolio.Data;
 using BackendPortafolio.DTOs;
+using BackendPortafolio.Helpers;
 using BackendPortafolio.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ public class ProyectosController : ControllerBase
 
     //GET: api/proyectos
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProyectoReadDto>>> GetProyectos()
+    public async Task<ActionResult<ApiResponse<IEnumerable<ProyectoReadDto>>>> GetProyectos()
     {
         var proyectos = await _context.Proyectos.
             Include(p => p.ProyectoTecnologias).
@@ -32,12 +33,17 @@ public class ProyectosController : ControllerBase
                 UrlDemo = p.UrlDemo,
                 Tecnologias = p.ProyectoTecnologias.Select(pt => pt.Tecnologia!.Nombre).ToList()
             }).ToListAsync();
-        return Ok(proyectos);
+        return Ok(new ApiResponse<IEnumerable<ProyectoReadDto>>
+        {
+            Exito = true,
+            Mensaje = "Proyectos obtenidos correctamente.",
+            Datos = proyectos
+        });
     }
 
     //POST: api/proyectos
     [HttpPost]
-    public async Task<ActionResult<ProyectoReadDto>> PostProyecto(ProyectoCreacionDto proyectoDto)
+    public async Task<ActionResult<ApiResponse<ProyectoReadDto>>> PostProyecto(ProyectoCreacionDto proyectoDto)
     {
         // 1. Mapear del DTO de creación al Modelo real de la BD
         var proyecto = new Proyecto
@@ -75,16 +81,27 @@ public class ProyectosController : ControllerBase
             UrlDemo = proyecto.UrlDemo
         };
 
-        return CreatedAtAction(nameof(GetProyectos), new { id = proyecto.Id }, respuesta);
+        var apiResponse = new ApiResponse<ProyectoReadDto>
+        {
+            Exito = true,
+            Mensaje = "Proyecto creado con exito",
+            Datos = respuesta
+        };
+
+        return CreatedAtAction(nameof(GetProyectos), new { id = proyecto.Id }, apiResponse);
     }
 
     //DELETE: api/proyectos/{id}
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteProyecto(int id)
+    public async Task<ActionResult<ApiResponse<string>>> DeleteProyecto(int id)
     {
         var proyecto = await _context.Proyectos.FindAsync(id);
 
-        if (proyecto == null) return NotFound();
+        if (proyecto == null) return NotFound(new ApiResponse<string>
+        {
+            Exito = false,
+            Mensaje = "El proyecto no existe."
+        });
 
         var tituloProyecto = proyecto.Titulo;
 
@@ -92,22 +109,23 @@ public class ProyectosController : ControllerBase
         await _context.SaveChangesAsync();
 
         return Ok(
-            new
+            new ApiResponse<string>
             {
-                mensaje = $"El proyecto '{tituloProyecto}' se ha eiminado exitosamente."
+                Exito = true,
+                Mensaje = $"El proyecto '{tituloProyecto}' se ha eiminado exitosamente."
             }
         );
     }
 
     //PUT: api/proyectos/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutProyecto(int id, ProyectoActualizarDto proyectoDto)
+    public async Task<ActionResult<ApiResponse<string>>> PutProyecto(int id, ProyectoActualizarDto proyectoDto)
     {
         var proyectoEnDb = await _context.Proyectos
             .Include(p => p.ProyectoTecnologias)
             .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (proyectoEnDb == null) return NotFound("El proyecto no existe.");
+        if (proyectoEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "El proyecto no existe" });
 
         if (!string.IsNullOrWhiteSpace(proyectoDto.Titulo))
         {
@@ -146,7 +164,11 @@ public class ProyectosController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        return Ok(new { mensaje = "Proyecto actualizado correctamente." });
+        return Ok(new ApiResponse<string>
+        {
+            Exito = true,
+            Mensaje = "Proyecto actualizado correctamente."
+        });
     }
 
 }

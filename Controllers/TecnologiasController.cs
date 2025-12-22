@@ -1,6 +1,7 @@
 using System.Collections;
 using BackendPortafolio.Data;
 using BackendPortafolio.DTOs;
+using BackendPortafolio.Helpers;
 using BackendPortafolio.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,23 +20,30 @@ public class TecnologiasController : ControllerBase
 
     //GET: api/tecnologias
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TecnologiaReadDto>>> GetTecnologias()
+    public async Task<ActionResult<ApiResponse<IEnumerable<TecnologiaReadDto>>>> GetTecnologias()
     {
-        return await _context.Tecnologias.Select(t => new TecnologiaReadDto
+        var resultado = await _context.Tecnologias.Select(t => new TecnologiaReadDto
         {
             Id = t.Id,
             Nombre = t.Nombre
         }).ToListAsync();
+
+        return Ok(new ApiResponse<IEnumerable<TecnologiaReadDto>>
+        {
+            Exito = true,
+            Mensaje = "Tecnologias obtenidas correctamente.",
+            Datos = resultado
+        });
     }
 
     //POST: api/tecnologias
     [HttpPost]
-    public async Task<ActionResult<TecnologiaReadDto>> PostTecnologia(TecnologiaDTO tecnologiaDTO)
+    public async Task<ActionResult<ApiResponse<TecnologiaReadDto>>> PostTecnologia(TecnologiaDTO tecnologiaDTO)
     {
         //Validar si ya existe para evitar duplicados
         if (await _context.Tecnologias.AnyAsync(t => t.Nombre.ToLower() == tecnologiaDTO.Nombre.ToLower()))
         {
-            return BadRequest("Esta tecnología ya existe");
+            return BadRequest(new ApiResponse<TecnologiaReadDto> { Exito = false, Mensaje = "Esta tecnología ya existe." });
         }
 
         var tecnologia = new Tecnologia
@@ -52,42 +60,50 @@ public class TecnologiasController : ControllerBase
             Nombre = tecnologia.Nombre
         };
 
-        return CreatedAtAction(nameof(GetTecnologias), new { id = tecnologia.Id }, resultado);
+        var apiResponse = new ApiResponse<TecnologiaReadDto>
+        {
+            Exito = true,
+            Mensaje = "Tecnología ingresada correctamente.",
+            Datos = resultado
+        };
+
+        return CreatedAtAction(nameof(GetTecnologias), new { id = tecnologia.Id }, apiResponse);
     }
 
     //PUT: api/tecnologias/5
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutTecnologia(int id, TecnologiaDTO tecnologiaDTO)
+    public async Task<ActionResult<ApiResponse<string>>> PutTecnologia(int id, TecnologiaDTO tecnologiaDTO)
     {
         var tecnologiaEnDb = await _context.Tecnologias.FindAsync(id);
-        if (tecnologiaEnDb == null) return NotFound("La tecnología no existe");
+        if (tecnologiaEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "La tecnología no existe." });
 
         //VAlidar que el nuevo nombre no lo tenga otra tecnologia ya existente
 
         if (await _context.Tecnologias.AnyAsync(t => t.Nombre.ToLower() == tecnologiaDTO.Nombre.ToLower() && t.Id != id))
         {
-            return BadRequest("Ya existe una tecnolgía con ese nombre.");
+            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Ya existe una tecnolgía con ese nombre." });
         }
 
         tecnologiaEnDb.Nombre = tecnologiaDTO.Nombre;
         await _context.SaveChangesAsync();
 
-        return Ok(new { mensaje = "Tecnología actualizada correctamente." });
+        return Ok(new ApiResponse<string> { Exito = true, Mensaje = "Tecnología actualizada correctamente." });
     }
 
     //DELETE: api/tecnologias/id
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteTecnologia(int id)
+    public async Task<ActionResult<ApiResponse<string>>> DeleteTecnologia(int id)
     {
         var tecnologia = await _context.Tecnologias.FindAsync(id);
-        if (tecnologia == null) return NotFound("La tenología no se encontro.");
+        if (tecnologia == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "La tenología no se encontro." });
 
         _context.Tecnologias.Remove(tecnologia);
         await _context.SaveChangesAsync();
 
-        return Ok(new
+        return Ok(new ApiResponse<string>
         {
-            mensaje = $"La tecnología '{tecnologia.Nombre}' ha sido eliminada correctamente."
+            Exito = true,
+            Mensaje = $"La tecnología '{tecnologia.Nombre}' ha sido eliminada correctamente."
         });
     }
 }

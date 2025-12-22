@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using BackendPortafolio.Data;
 using BackendPortafolio.Models;
 using BackendPortafolio.DTOs;
-using System.IO.Compression;
+using BackendPortafolio.Helpers;
 
 namespace BackendPortafolio.Controllers;
 
@@ -25,7 +25,7 @@ public class UsuariosController : ControllerBase
         // 1. Verificar si el correo ya existe
         if (await _context.Usuarios.AnyAsync(u => u.Correo == registroDto.Correo))
         {
-            return BadRequest("El correo ya está registrado.");
+            return BadRequest(new ApiResponse<string> {Exito = false, Mensaje ="El correo ya está registrado."} );
         }
 
         // 2. Mapear el DTO al Modelo real
@@ -39,7 +39,7 @@ public class UsuariosController : ControllerBase
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync();
 
-        return Ok(new { mensaje = "Usuario creado con éxito", id = usuario.Id });
+        return Ok(new ApiResponse<object>{ Exito = true, Mensaje = "Usuario creado con éxito", Datos = new {id = usuario.Id} });
     }
 
     //POST: api/Usuarios/login
@@ -53,14 +53,18 @@ public class UsuariosController : ControllerBase
         //Si no existe o la contraseña no coincide
         if (usuario == null || !BCrypt.Net.BCrypt.Verify(loginDto.Contrasena, usuario.Contrasena))
         {
-            return Unauthorized("Correo o contraseña incorrectos.");
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = "Correo o contraseña incorrectos." });
         }
 
-        return Ok(new
+        return Ok(new ApiResponse<object>
         {
-            mensaje = "Login exitoso",
-            usuarioId = usuario.Id,
-            nombre = usuario.NombreUsuario
+            Exito = true,
+            Mensaje = "Login exitoso",
+            Datos = new
+            {
+                usuarioId = usuario.Id,
+                nombre = usuario.NombreUsuario
+            }
         });
     }
 
@@ -69,7 +73,7 @@ public class UsuariosController : ControllerBase
     public async Task<IActionResult> ActualizarUsuario(int id, UsuarioActualizarDto actualizarDto)
     {
         var usuarioEnDB = await _context.Usuarios.FindAsync(id);
-        if (usuarioEnDB == null) return NotFound("No se encontro el usuario");
+        if (usuarioEnDB == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "No se encontro el usuario" });
 
         //Validar el nombre del usuario
 
@@ -81,12 +85,12 @@ public class UsuariosController : ControllerBase
         //Validar el correo y que no este dupicado por otro usuario
         if (!string.IsNullOrWhiteSpace(actualizarDto.Correo))
         {
-            if (!actualizarDto.Correo.Contains('@')) return BadRequest("El formato del correo no es valido.");
+            if (!actualizarDto.Correo.Contains('@')) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "El formato del correo no es valido." });
 
             var correoExiste = await _context.Usuarios.
                 AnyAsync(u => u.Correo == actualizarDto.Correo && u.Id != id);
 
-            if (correoExiste) return BadRequest($"El correo '{correoExiste}' ya esta en uso por otra cuenta.");
+            if (correoExiste) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = $"El correo '{actualizarDto.Correo}' ya esta en uso por otra cuenta." });
 
             usuarioEnDB.Correo = actualizarDto.Correo;
         }
@@ -94,15 +98,15 @@ public class UsuariosController : ControllerBase
         //validar y encriptar nueva contraseña
         if (!string.IsNullOrWhiteSpace(actualizarDto.Contrasena))
         {
-            if(actualizarDto.Contrasena.Length < 6) 
-                return BadRequest("La contraseña debe tener almenos 6 caracteres.");
+            if(actualizarDto.Contrasena.Length < 6)
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "La contraseña debe tener almenos 6 caracteres." });
 
             usuarioEnDB.Contrasena = BCrypt.Net.BCrypt.HashPassword(actualizarDto.Contrasena);
         }
 
         await _context.SaveChangesAsync();
 
-        return Ok(new { mensaje = $"Usuario '{usuarioEnDB.NombreUsuario}' actualizado correctamente." });
+        return Ok(new ApiResponse<string> { Exito = true, Mensaje = $"Usuario '{usuarioEnDB.NombreUsuario}' actualizado correctamente." });
     }
 
 
@@ -111,11 +115,11 @@ public class UsuariosController : ControllerBase
     public async Task<IActionResult> EliminarUsuario(int id)
     {
         var usuarioEnDb = await _context.Usuarios.FindAsync(id);
-        if (usuarioEnDb == null) return NotFound("No se encontro el usuario");
+        if (usuarioEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "No se encontro el usuario" });
 
         _context.Usuarios.Remove(usuarioEnDb);
         await _context.SaveChangesAsync();
-        return Ok(new { mensaje = $"Usuario '{usuarioEnDb.NombreUsuario}' eliminado correctamente." });
+        return Ok(new ApiResponse<string> { Exito = true, Mensaje = $"Usuario '{usuarioEnDb.NombreUsuario}' eliminado correctamente." });
     }
 
     //GET: api/usuarios/{id}
@@ -142,10 +146,15 @@ public class UsuariosController : ControllerBase
 
         if (usuario == null)
         {
-            return NotFound(new { mensaje = "Usuario no encontrado." });
+            return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "Usuario no encontrado." });
         }
 
-        return Ok(usuario);
+        return Ok(new ApiResponse<UsuarioLeerDto>
+        {
+            Exito = true,
+            Mensaje = "Usuario obtenido correctamente.",
+            Datos = usuario
+        });
 
     }
 }
