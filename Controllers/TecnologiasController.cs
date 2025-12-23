@@ -1,4 +1,3 @@
-using System.Collections;
 using BackendPortafolio.Data;
 using BackendPortafolio.DTOs;
 using BackendPortafolio.Helpers;
@@ -38,7 +37,7 @@ public class TecnologiasController : ControllerBase
 
     //POST: api/tecnologias
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<TecnologiaReadDto>>> PostTecnologia(TecnologiaDTO tecnologiaDTO)
+    public async Task<ActionResult<ApiResponse<TecnologiaReadDto>>> PostTecnologia(TecnologiaDto tecnologiaDTO)
     {
         //Validar si ya existe para evitar duplicados
         if (await _context.Tecnologias.AnyAsync(t => t.Nombre.ToLower() == tecnologiaDTO.Nombre.ToLower()))
@@ -72,7 +71,7 @@ public class TecnologiasController : ControllerBase
 
     //PUT: api/tecnologias/5
     [HttpPut("{id}")]
-    public async Task<ActionResult<ApiResponse<string>>> PutTecnologia(int id, TecnologiaDTO tecnologiaDTO)
+    public async Task<ActionResult<ApiResponse<string>>> PutTecnologia(int id, TecnologiaDto tecnologiaDTO)
     {
         var tecnologiaEnDb = await _context.Tecnologias.FindAsync(id);
         if (tecnologiaEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "La tecnología no existe." });

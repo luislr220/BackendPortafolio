@@ -4,15 +4,15 @@ namespace BackendPortafolio.DTOs;
 
 public class UsuarioRegistroDto
 {
-    [Required]
-    [MaxLength(50)]
+    [Required(ErrorMessage = "El nombre es obligatorio.")]
+    [MaxLength(50, ErrorMessage = "El nombre no debe contener más de 50 caracteres.")]
     public string NombreUsuario { get; set; } = string.Empty;
 
-    [Required]
-    [EmailAddress]
+    [Required(ErrorMessage = "El correo es obligatorio.")]
+    [EmailAddress(ErrorMessage = "El formato de correo no es el esperado. e.j: example@example.com")]
     public string Correo { get; set; } = string.Empty;
 
-    [Required]
+    [Required(ErrorMessage = "La contraseña es obligatoria.")]
     [MinLength(6, ErrorMessage = "La contraseña debe tener al menos 6 caracteres")]
     public string Contrasena { get; set; } = string.Empty;
 }
