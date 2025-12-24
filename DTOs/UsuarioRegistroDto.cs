@@ -6,6 +6,8 @@ public class UsuarioRegistroDto
 {
     [Required(ErrorMessage = "El nombre es obligatorio.")]
     [MaxLength(50, ErrorMessage = "El nombre no debe contener más de 50 caracteres.")]
+    [RegularExpression(@"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s]+$",
+    ErrorMessage = @"El campo contiene caracteres no permitidos. Evite usar símbolos como < > / \ & % $")]
     public string NombreUsuario { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "El correo es obligatorio.")]
