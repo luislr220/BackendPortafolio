@@ -10,7 +10,7 @@ public class LoginDto
 
 
     [Required(ErrorMessage = "La contraseña es obligatoria.")]
-    [RegularExpression(@"^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]+$", 
-        ErrorMessage = "La contraseña no puede contener caracteres especiales como < > & % $ /")]
+    [RegularExpression(@"^[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ%&$#@.]+$",
+        ErrorMessage = "La contraseña no puede contener caracteres especiales que no sean @,&,%,$,#, y tampoco debe de tener espacios espacios")]
     public string Contrasena { get; set; } = string.Empty;
 }

@@ -4,6 +4,11 @@ using BackendPortafolio.Data;
 using BackendPortafolio.Models;
 using BackendPortafolio.DTOs;
 using BackendPortafolio.Helpers;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BackendPortafolio.Controllers;
 
@@ -13,9 +18,11 @@ public class UsuariosController : ControllerBase
 {
     private readonly AppDbContext _context;
 
-    public UsuariosController(AppDbContext context)
+    private readonly IConfiguration _config;
+    public UsuariosController(AppDbContext context, IConfiguration config)
     {
         _context = context;
+        _config = config;
     }
 
     //POST: api/Usuarios/registro
@@ -56,12 +63,33 @@ public class UsuariosController : ControllerBase
             return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = "Correo o contraseña incorrectos." });
         }
 
+        //Generar el token
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"]!);
+
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+                new Claim(ClaimTypes.Email, usuario.Correo)
+            }),
+            Expires = DateTime.UtcNow.AddHours(8),
+            Issuer = _config["Jwt:Issuer"],
+            Audience = _config["Jwt:Audience"],
+            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        };
+
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        var tokenString = tokenHandler.WriteToken(token);
+
         return Ok(new ApiResponse<object>
         {
             Exito = true,
             Mensaje = "Login exitoso",
             Datos = new
             {
+                Token = tokenString,
                 usuarioId = usuario.Id,
                 nombre = usuario.NombreUsuario
             }
@@ -70,6 +98,7 @@ public class UsuariosController : ControllerBase
 
     //PUT: api/usuarios/{id}
     [HttpPut("{id}")]
+    [Authorize]
     public async Task<IActionResult> ActualizarUsuario(int id, UsuarioActualizarDto actualizarDto)
     {
         var usuarioEnDB = await _context.Usuarios.FindAsync(id);
