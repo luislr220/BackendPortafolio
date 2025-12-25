@@ -1,7 +1,10 @@
+using System.Text;
 using BackendPortafolio.Data;
 using BackendPortafolio.Helpers;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +30,33 @@ builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
 
     };
 
+});
+
+//Obtener la llave desde los secrets o el AppSettings
+var jwtKey = builder.Configuration["Jwt:Key"];
+if (string.IsNullOrEmpty(jwtKey)) throw new Exception("La llave JWT no está configurada.");
+
+var keyBytes = Encoding.ASCII.GetBytes(jwtKey);
+
+//Configurar el servicio de autenticación
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = true;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        ClockSkew = TimeSpan.Zero
+    };
 });
 
 // contexto de la base de datos con PostgreSQL
@@ -57,6 +87,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("PermitirTodo");
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
