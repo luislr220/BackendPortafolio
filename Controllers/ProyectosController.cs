@@ -2,6 +2,7 @@ using BackendPortafolio.Data;
 using BackendPortafolio.DTOs;
 using BackendPortafolio.Helpers;
 using BackendPortafolio.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,6 +44,7 @@ public class ProyectosController : ControllerBase
 
     //POST: api/proyectos
     [HttpPost]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<ProyectoReadDto>>> PostProyecto(ProyectoCreacionDto proyectoDto)
     {
         // 1. Mapear del DTO de creación al Modelo real de la BD
@@ -93,6 +95,7 @@ public class ProyectosController : ControllerBase
 
     //DELETE: api/proyectos/{id}
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> DeleteProyecto(int id)
     {
         var proyecto = await _context.Proyectos.FindAsync(id);
@@ -119,6 +122,7 @@ public class ProyectosController : ControllerBase
 
     //PUT: api/proyectos/{id}
     [HttpPut("{id}")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> PutProyecto(int id, ProyectoActualizarDto proyectoDto)
     {
         var proyectoEnDb = await _context.Proyectos

@@ -141,6 +141,7 @@ public class UsuariosController : ControllerBase
 
     //DELETE: api/usuarios/{id}
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<IActionResult> EliminarUsuario(int id)
     {
         var usuarioEnDb = await _context.Usuarios.FindAsync(id);

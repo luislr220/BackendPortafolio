@@ -2,6 +2,7 @@ using BackendPortafolio.Data;
 using BackendPortafolio.DTOs;
 using BackendPortafolio.Helpers;
 using BackendPortafolio.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,7 @@ public class TecnologiasController : ControllerBase
 
     //GET: api/tecnologias
     [HttpGet]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<IEnumerable<TecnologiaReadDto>>>> GetTecnologias()
     {
         var resultado = await _context.Tecnologias.Select(t => new TecnologiaReadDto
@@ -37,6 +39,7 @@ public class TecnologiasController : ControllerBase
 
     //POST: api/tecnologias
     [HttpPost]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<TecnologiaReadDto>>> PostTecnologia(TecnologiaDto tecnologiaDTO)
     {
         //Validar si ya existe para evitar duplicados
@@ -71,6 +74,7 @@ public class TecnologiasController : ControllerBase
 
     //PUT: api/tecnologias/5
     [HttpPut("{id}")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> PutTecnologia(int id, TecnologiaDto tecnologiaDTO)
     {
         var tecnologiaEnDb = await _context.Tecnologias.FindAsync(id);
@@ -91,6 +95,7 @@ public class TecnologiasController : ControllerBase
 
     //DELETE: api/tecnologias/id
     [HttpDelete("{id}")]
+    [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> DeleteTecnologia(int id)
     {
         var tecnologia = await _context.Tecnologias.FindAsync(id);
