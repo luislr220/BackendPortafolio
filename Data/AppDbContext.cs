@@ -25,5 +25,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Usuario>()
             .HasIndex(u => u.Correo)
             .IsUnique();
+        // Configurar Borrado en Cascada para Proyectos cuando se borra un Usuario
+        modelBuilder.Entity<Proyecto>()
+            .HasOne(p => p.Usuario)
+            .WithMany(u => u.Proyectos)
+            .HasForeignKey(p => p.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
