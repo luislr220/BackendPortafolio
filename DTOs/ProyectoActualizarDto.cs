@@ -18,7 +18,6 @@ public class ProyectoActualizarDto
     [RegularExpression(@"^[a-zA-Z0-9.:/?#\[\]@!$&'()*+,;=%-]+$",
         ErrorMessage = @"Ingresa un url valida.")]
     public string? UrlDemo { get; set; }
-    public int UsuarioId { get; set; }
 
     //Lista de Ids de Tecnologias
     public List<int> TecnologiasIds { get; set; } = new();

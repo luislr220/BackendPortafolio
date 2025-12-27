@@ -96,16 +96,17 @@ public class UsuariosController : ControllerBase
         });
     }
 
-    //PUT: api/usuarios/{id}
-    [HttpPut("{id}")]
+    //PUT: api/usuarios/perfil
+    [HttpPut("perfil")]
     [Authorize]
-    public async Task<IActionResult> ActualizarUsuario(int id, UsuarioActualizarDto actualizarDto)
+    public async Task<IActionResult> ActualizarUsuario(UsuarioActualizarDto actualizarDto)
     {
-        var usuarioEnDB = await _context.Usuarios.FindAsync(id);
+        var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var usuarioEnDB = await _context.Usuarios.FindAsync(idToken);
         if (usuarioEnDB == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "No se encontro el usuario" });
 
         //Validar el nombre del usuario
-
         if (!string.IsNullOrWhiteSpace(actualizarDto.NombreUsuario))
         {
             usuarioEnDB.NombreUsuario = actualizarDto.NombreUsuario;
@@ -117,7 +118,7 @@ public class UsuariosController : ControllerBase
             if (!actualizarDto.Correo.Contains('@')) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "El formato del correo no es valido." });
 
             var correoExiste = await _context.Usuarios.
-                AnyAsync(u => u.Correo == actualizarDto.Correo && u.Id != id);
+                AnyAsync(u => u.Correo == actualizarDto.Correo && u.Id != idToken);
 
             if (correoExiste) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = $"El correo '{actualizarDto.Correo}' ya esta en uso por otra cuenta." });
 
@@ -139,12 +140,14 @@ public class UsuariosController : ControllerBase
     }
 
 
-    //DELETE: api/usuarios/{id}
-    [HttpDelete("{id}")]
+    //DELETE: api/usuarios/perfil
+    [HttpDelete("perfil")]
     [Authorize]
-    public async Task<IActionResult> EliminarUsuario(int id)
+    public async Task<IActionResult> EliminarUsuario()
     {
-        var usuarioEnDb = await _context.Usuarios.FindAsync(id);
+        var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        var usuarioEnDb = await _context.Usuarios.FindAsync(idToken);
         if (usuarioEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "No se encontro el usuario" });
 
         _context.Usuarios.Remove(usuarioEnDb);

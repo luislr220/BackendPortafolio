@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BackendPortafolio.Data;
 using BackendPortafolio.DTOs;
 using BackendPortafolio.Helpers;
@@ -47,6 +48,10 @@ public class ProyectosController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<ProyectoReadDto>>> PostProyecto(ProyectoCreacionDto proyectoDto)
     {
+
+        //Extraer el ID directamente del Token
+        var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        
         // 1. Mapear del DTO de creación al Modelo real de la BD
         var proyecto = new Proyecto
         {
@@ -54,7 +59,7 @@ public class ProyectosController : ControllerBase
             Descripcion = proyectoDto.Descripcion,
             UrlRepositorio = proyectoDto.UrlRepositorio,
             UrlDemo = proyectoDto.UrlDemo,
-            UsuarioId = proyectoDto.UsuarioId
+            UsuarioId = idToken
         };
 
         _context.Proyectos.Add(proyecto);
@@ -106,6 +111,18 @@ public class ProyectosController : ControllerBase
             Mensaje = "El proyecto no existe."
         });
 
+        // Extraer ID del token
+        var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+        if (proyecto.UsuarioId != idToken)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<string>
+            {
+                Exito = false,
+                Mensaje = "No tienes permiso para eliminar un proyecto que no te pertenece."
+            });
+        }
+
         var tituloProyecto = proyecto.Titulo;
 
         _context.Proyectos.Remove(proyecto);
@@ -130,6 +147,18 @@ public class ProyectosController : ControllerBase
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (proyectoEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "El proyecto no existe" });
+
+        //Extraer ID del token
+        var idToken = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+
+        if (proyectoEnDb.UsuarioId != idToken)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<string>
+            {
+                Exito = false,
+                Mensaje = "No tienes permiso para modificar un proyecto que no te pertenece."
+            });
+        }
 
         if (!string.IsNullOrWhiteSpace(proyectoDto.Titulo))
         {
