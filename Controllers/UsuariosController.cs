@@ -172,7 +172,12 @@ public class UsuariosController : ControllerBase
                   Descripcion = p.Descripcion,
                   UrlRepositorio = p.UrlRepositorio,
                   UrlDemo = p.UrlDemo,
-                  Tecnologias = p.ProyectoTecnologias.Select(pt => pt.Tecnologia!.Nombre).ToList()
+                  Tecnologias = p.ProyectoTecnologias.Select(pt => pt.Tecnologia!.Nombre).ToList(),
+                  Imagenes = p.ProyectoImagenes.Select(pi => new ProyectoImagenDto
+                  {
+                      Id = pi.Id,
+                      Url = pi.Url
+                  }).ToList()
               }).ToList()  
             })
             .FirstOrDefaultAsync();
