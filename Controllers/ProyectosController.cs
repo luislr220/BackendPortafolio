@@ -176,70 +176,18 @@ public class ProyectosController : ControllerBase
 
         if (proyectoEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "El proyecto no existe" });
 
-        //Extraer ID del token
-        var idToken = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        // Validar Propiedad
+        if (!EsDuenoDelProyecto(proyectoEnDb))
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<string> { Exito = false, Mensaje = "Sin permisos." });
 
-        if (proyectoEnDb.UsuarioId != idToken)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<string>
-            {
-                Exito = false,
-                Mensaje = "No tienes permiso para modificar un proyecto que no te pertenece."
-            });
-        }
+        // Actualizar campos básicos
+        ActualizarDatosBasicos(proyectoEnDb, proyectoDto);
 
-        if (!string.IsNullOrWhiteSpace(proyectoDto.Titulo))
-        {
-            proyectoEnDb.Titulo = proyectoDto.Titulo;
-        }
+        // Actualizar Tecnologías
+        ActualizarTecnologias(id, proyectoDto.TecnologiasIds);
 
-        if (!string.IsNullOrWhiteSpace(proyectoDto.Descripcion))
-        {
-            proyectoEnDb.Descripcion = proyectoDto.Descripcion;
-        }
-
-        if (!string.IsNullOrWhiteSpace(proyectoDto.UrlRepositorio))
-        {
-            proyectoEnDb.UrlRepositorio = proyectoDto.UrlRepositorio;
-        }
-
-        if (!string.IsNullOrWhiteSpace(proyectoDto.UrlDemo))
-        {
-            proyectoEnDb.UrlDemo = proyectoDto.UrlDemo;
-        }
-
-        if (proyectoDto.TecnologiasIds != null && proyectoDto.TecnologiasIds.Any())
-        {
-            var tecnologiasActuales = _context.ProyectoTecnologias.Where(pt => pt.ProyectoId == id);
-            _context.ProyectoTecnologias.RemoveRange(tecnologiasActuales);
-
-            foreach (var techId in proyectoDto.TecnologiasIds)
-            {
-                _context.ProyectoTecnologias.Add(new ProyectoTecnologia
-                {
-                    ProyectoId = id,
-                    TecnologiaId = techId
-                });
-            }
-        }
-
-        // Lógica de Imágenes
-        if (nuevasImagenes != null && nuevasImagenes.Any())
-        {
-            foreach (var archivo in nuevasImagenes)
-            {
-                var resultado = await _imagenServicio.SubirImagenAsync(archivo);
-                if (resultado.Error == null)
-                {
-                    _context.ProyectoImagenes.Add(new ProyectoImagen
-                    {
-                        ProyectoId = id,
-                        Url = resultado.SecureUrl.AbsoluteUri,
-                        PublicId = resultado.PublicId
-                    });
-                }
-            }
-        }
+        // Procesar nuevas imágenes
+        await ProcesarNuevasImagenes(id, nuevasImagenes);
 
         await _context.SaveChangesAsync();
 
@@ -248,6 +196,53 @@ public class ProyectosController : ControllerBase
             Exito = true,
             Mensaje = "Proyecto actualizado correctamente."
         });
+    }
+
+    private bool EsDuenoDelProyecto(Proyecto proyecto)
+    {
+        //Extraer ID del token
+        var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        return proyecto.UsuarioId == idToken;
+    }
+
+    private static void ActualizarDatosBasicos(Proyecto proyecto, ProyectoActualizarDto dto)
+    {
+        if (!string.IsNullOrWhiteSpace(dto.Titulo)) proyecto.Titulo = dto.Titulo;
+        if (!string.IsNullOrWhiteSpace(dto.Descripcion)) proyecto.Descripcion = dto.Descripcion;
+        if (!string.IsNullOrWhiteSpace(dto.UrlRepositorio)) proyecto.UrlRepositorio = dto.UrlRepositorio;
+        if (!string.IsNullOrWhiteSpace(dto.UrlDemo)) proyecto.UrlDemo = dto.UrlDemo;
+    }
+
+    private void ActualizarTecnologias(int proyectoId, List<int> nuevasTecs)
+    {
+        if (nuevasTecs == null || !nuevasTecs.Any()) return;
+
+        var actuales = _context.ProyectoTecnologias.Where(pt => pt.ProyectoId == proyectoId);
+        _context.ProyectoTecnologias.RemoveRange(actuales);
+
+        foreach (var techId in nuevasTecs)
+        {
+            _context.ProyectoTecnologias.Add(new ProyectoTecnologia { ProyectoId = proyectoId, TecnologiaId = techId });
+        }
+    }
+
+    private async Task ProcesarNuevasImagenes(int proyectoId, List<IFormFile>? imagenes)
+    {
+        if (imagenes == null || !imagenes.Any()) return;
+
+        foreach (var archivo in imagenes)
+        {
+            var resultado = await _imagenServicio.SubirImagenAsync(archivo);
+            if (resultado.Error == null)
+            {
+                _context.ProyectoImagenes.Add(new ProyectoImagen
+                {
+                    ProyectoId = proyectoId,
+                    Url = resultado.SecureUrl.AbsoluteUri,
+                    PublicId = resultado.PublicId
+                });
+            }
+        }
     }
 
 
