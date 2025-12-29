@@ -115,8 +115,6 @@ public class UsuariosController : ControllerBase
         //Validar el correo y que no este dupicado por otro usuario
         if (!string.IsNullOrWhiteSpace(actualizarDto.Correo))
         {
-            if (!actualizarDto.Correo.Contains('@')) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "El formato del correo no es valido." });
-
             var correoExiste = await _context.Usuarios.
                 AnyAsync(u => u.Correo == actualizarDto.Correo && u.Id != idToken);
 
