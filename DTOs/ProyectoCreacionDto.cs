@@ -20,6 +20,8 @@ public class ProyectoCreacionDto
         ErrorMessage = @"Ingresa un url valida.")]
     public string? UrlDemo { get; set; }
 
+    public List<IFormFile>? Imagenes {get; set;} = new ();
+
     //Lista de Ids de Tecnologias
     public List<int> TecnologiasIds { get; set; } = new();
 }

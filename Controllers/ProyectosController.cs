@@ -14,9 +14,11 @@ namespace BackendPortafolio.Controllers;
 public class ProyectosController : ControllerBase
 {
     private readonly AppDbContext _context;
-    public ProyectosController(AppDbContext context)
+    private readonly IImagenServicio _imagenServicio;
+    public ProyectosController(AppDbContext context, IImagenServicio imagenServicio)
     {
         _context = context;
+        _imagenServicio = imagenServicio;
     }
 
     //GET: api/proyectos
@@ -25,7 +27,8 @@ public class ProyectosController : ControllerBase
     {
         var proyectos = await _context.Proyectos.
             Include(p => p.ProyectoTecnologias).
-            ThenInclude(pt => pt.Tecnologia).
+                ThenInclude(pt => pt.Tecnologia).
+            Include(pi => pi.ProyectoImagenes).
             Select(p => new ProyectoReadDto
             {
                 Id = p.Id,
@@ -33,7 +36,12 @@ public class ProyectosController : ControllerBase
                 Descripcion = p.Descripcion,
                 UrlRepositorio = p.UrlRepositorio,
                 UrlDemo = p.UrlDemo,
-                Tecnologias = p.ProyectoTecnologias.Select(pt => pt.Tecnologia!.Nombre).ToList()
+                Tecnologias = p.ProyectoTecnologias.Select(pt => pt.Tecnologia!.Nombre).ToList(),
+                Imagenes = p.ProyectoImagenes.Select(pi => new ProyectoImagenDto
+                {
+                    Id = pi.Id,
+                    Url = pi.Url
+                }).ToList()
             }).ToListAsync();
         return Ok(new ApiResponse<IEnumerable<ProyectoReadDto>>
         {
@@ -46,13 +54,13 @@ public class ProyectosController : ControllerBase
     //POST: api/proyectos
     [HttpPost]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<ProyectoReadDto>>> PostProyecto(ProyectoCreacionDto proyectoDto)
+    public async Task<ActionResult<ApiResponse<ProyectoReadDto>>> PostProyecto([FromForm] ProyectoCreacionDto proyectoDto)
     {
 
         //Extraer el ID directamente del Token
         var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        
-        // 1. Mapear del DTO de creación al Modelo real de la BD
+
+        // Mapear del DTO de creación al Modelo real de la BD
         var proyecto = new Proyecto
         {
             Titulo = proyectoDto.Titulo,
@@ -65,7 +73,27 @@ public class ProyectosController : ControllerBase
         _context.Proyectos.Add(proyecto);
         await _context.SaveChangesAsync();
 
-        // 2. Lógica para las tecnologías (si las hay)
+        //Logica de imagenes
+        if (proyectoDto.Imagenes != null && proyectoDto.Imagenes.Any())
+        {
+            foreach (var archivo in proyectoDto.Imagenes)
+            {
+                var resultado = await _imagenServicio.SubirImagenAsync(archivo);
+                if (resultado.Error == null)
+                {
+                    _context.ProyectoImagenes.Add(new ProyectoImagen
+                    {
+                        ProyectoId = proyecto.Id,
+                        Url = resultado.SecureUrl.AbsoluteUri,
+                        PublicId = resultado.PublicId
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        // Lógica para las tecnologías (si las hay)
         if (proyectoDto.TecnologiasIds.Any())
         {
             foreach (var techId in proyectoDto.TecnologiasIds)
@@ -140,7 +168,7 @@ public class ProyectosController : ControllerBase
     //PUT: api/proyectos/{id}
     [HttpPut("{id}")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<string>>> PutProyecto(int id, ProyectoActualizarDto proyectoDto)
+    public async Task<ActionResult<ApiResponse<string>>> PutProyecto(int id, [FromForm] ProyectoActualizarDto proyectoDto, List<IFormFile>? nuevasImagenes)
     {
         var proyectoEnDb = await _context.Proyectos
             .Include(p => p.ProyectoTecnologias)
@@ -195,6 +223,24 @@ public class ProyectosController : ControllerBase
             }
         }
 
+        // Lógica de Imágenes
+        if (nuevasImagenes != null && nuevasImagenes.Any())
+        {
+            foreach (var archivo in nuevasImagenes)
+            {
+                var resultado = await _imagenServicio.SubirImagenAsync(archivo);
+                if (resultado.Error == null)
+                {
+                    _context.ProyectoImagenes.Add(new ProyectoImagen
+                    {
+                        ProyectoId = id,
+                        Url = resultado.SecureUrl.AbsoluteUri,
+                        PublicId = resultado.PublicId
+                    });
+                }
+            }
+        }
+
         await _context.SaveChangesAsync();
 
         return Ok(new ApiResponse<string>
@@ -202,6 +248,39 @@ public class ProyectosController : ControllerBase
             Exito = true,
             Mensaje = "Proyecto actualizado correctamente."
         });
+    }
+
+
+    //ENDPOINT PARA ELIMINAR IMAGENES DE PROYECTOS
+    [HttpDelete("imagen/{imagenId}")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<string>>> EliminarImagen(int imagenId)
+    {
+        var imagen = await _context.ProyectoImagenes
+            .Include(pi => pi.Proyecto)
+            .FirstOrDefaultAsync(i => i.Id == imagenId);
+
+        if (imagen == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "No se encontro una imagen con ese id." });
+
+        //validar que el usuario que borra la imagen sea el dueño
+        var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        if (imagen.Proyecto!.UsuarioId != idToken) return StatusCode(StatusCodes.Status403Forbidden,
+            new ApiResponse<string>
+            {
+                Exito = false,
+                Mensaje = "No tienes permiso para eliminar esta imagen."
+            });
+
+        //Borrar de cloudinary
+        await _imagenServicio.EliminarImagenAsync(imagen.PublicId);
+
+        //Borrar de la db
+        _context.ProyectoImagenes.Remove(imagen);
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new ApiResponse<string> { Exito = true, Mensaje = "La imagen se elimino correctamente." });
+
     }
 
 }

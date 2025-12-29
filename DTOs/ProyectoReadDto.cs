@@ -8,4 +8,5 @@ public class ProyectoReadDto
     public string? UrlRepositorio { get; set; }
     public string? UrlDemo { get; set; }
     public List<string> Tecnologias { get; set; } = new();
+    public List<ProyectoImagenDto> Imagenes { get; set; } = new();
 }

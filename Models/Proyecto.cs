@@ -32,4 +32,5 @@ public class Proyecto
     public Usuario? Usuario { get; set; }
 
     public List<ProyectoTecnologia> ProyectoTecnologias { get; set; } = new();
+    public List<ProyectoImagen> ProyectoImagenes { get; set; } = new();
 }

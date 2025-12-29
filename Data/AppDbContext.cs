@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Proyecto> Proyectos {get; set;}
     public DbSet<Tecnologia> Tecnologias {get; set;}
     public DbSet<ProyectoTecnologia> ProyectoTecnologias {get; set;}
+    public DbSet<ProyectoImagen> ProyectoImagenes {get; set;}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,6 +31,11 @@ public class AppDbContext : DbContext
             .HasOne(p => p.Usuario)
             .WithMany(u => u.Proyectos)
             .HasForeignKey(p => p.UsuarioId)
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ProyectoImagen>()
+            .HasOne(pi => pi.Proyecto)
+            .WithMany(p => p.ProyectoImagenes)
+            .HasForeignKey(pi => pi.ProyectoId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

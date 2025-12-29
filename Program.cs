@@ -1,6 +1,7 @@
 using System.Text;
 using BackendPortafolio.Data;
 using BackendPortafolio.Helpers;
+using BackendPortafolio.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -110,6 +111,9 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+builder.Services.AddScoped<IImagenServicio, ImagenServicio>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
