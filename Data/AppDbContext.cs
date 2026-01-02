@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<Tecnologia> Tecnologias {get; set;}
     public DbSet<ProyectoTecnologia> ProyectoTecnologias {get; set;}
     public DbSet<ProyectoImagen> ProyectoImagenes {get; set;}
+    public DbSet<Verificacion2Fa> Verificacion2Fas {get; set;}
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +37,12 @@ public class AppDbContext : DbContext
             .HasOne(pi => pi.Proyecto)
             .WithMany(p => p.ProyectoImagenes)
             .HasForeignKey(pi => pi.ProyectoId)
+            .OnDelete(DeleteBehavior.Cascade);
+        //Configuracion entre el usuario y el 2fa
+        modelBuilder.Entity<Verificacion2Fa>()
+            .HasOne<Usuario>()
+            .WithMany()
+            .HasForeignKey(v => v.UsuarioId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

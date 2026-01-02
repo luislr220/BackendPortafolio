@@ -1,6 +1,7 @@
 using System.Text;
 using BackendPortafolio.Data;
 using BackendPortafolio.Helpers;
+using BackendPortafolio.Models;
 using BackendPortafolio.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -113,6 +114,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<IImagenServicio, ImagenServicio>();
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
