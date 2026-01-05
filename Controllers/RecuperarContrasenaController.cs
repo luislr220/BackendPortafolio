@@ -81,7 +81,12 @@ public class RecuperarContrasenaController : ControllerBase
 
         if (verificacion == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No hay un código pendiente." });
 
-        if (verificacion.Expiracion < DateTime.Now)
+        Console.WriteLine($"Expiracion BD: {verificacion.Expiracion:o}");
+        Console.WriteLine($"UtcNow:        {DateTime.UtcNow:o}");
+        Console.WriteLine($"Now:           {DateTime.Now:o}");
+
+
+        if (verificacion.Expiracion < DateTime.UtcNow)
         {
             return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "El código ha expirado." });
         }
@@ -97,6 +102,7 @@ public class RecuperarContrasenaController : ControllerBase
             Subject = new ClaimsIdentity(new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+                new Claim("PasswordStamp", usuario.Contrasena.Substring(usuario.Contrasena.Length - 10)),
                 new Claim("Purpose", "ResetPassword")
             }),
             Expires = DateTime.UtcNow.AddMinutes(5),
@@ -149,6 +155,14 @@ public class RecuperarContrasenaController : ControllerBase
             var usuario = await _context.Usuarios.FindAsync(usuarioId);
 
             if (usuario == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Usuario no encontrado." });
+
+            var stampEnToken = principal.FindFirst("PasswordStamp")?.Value;
+            var stampActualEnDb = usuario.Contrasena.Substring(usuario.Contrasena.Length - 10);
+
+            if (stampEnToken != stampActualEnDb)
+            {
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Este enlace de recuperación ya ha sido uttilizado." });
+            }
 
             usuario.Contrasena = BCrypt.Net.BCrypt.HashPassword(cambiarContrasenaDto.NuevaContrasena);
             await _context.SaveChangesAsync();

@@ -10,7 +10,6 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using BackendPortafolio.Services;
-using System.Diagnostics;
 
 namespace BackendPortafolio.Controllers;
 
@@ -124,7 +123,7 @@ public class UsuariosController : ControllerBase
         {
             return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código de verificación incorrecto." });
         }
-        if (verificacion.Expiracion < DateTime.Now)
+        if (verificacion.Expiracion < DateTime.UtcNow)
         {
             return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código de verificación expirado." });
         }
