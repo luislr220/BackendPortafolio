@@ -81,11 +81,6 @@ public class RecuperarContrasenaController : ControllerBase
 
         if (verificacion == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No hay un código pendiente." });
 
-        Console.WriteLine($"Expiracion BD: {verificacion.Expiracion:o}");
-        Console.WriteLine($"UtcNow:        {DateTime.UtcNow:o}");
-        Console.WriteLine($"Now:           {DateTime.Now:o}");
-
-
         if (verificacion.Expiracion < DateTime.UtcNow)
         {
             return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "El código ha expirado." });
