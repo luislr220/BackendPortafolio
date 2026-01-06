@@ -154,7 +154,7 @@ public class UsuariosController : ControllerBase
             var idUsuario = int.TryParse(usuarioIdStr, out var usuarioIdParsed) ? usuarioIdParsed : 0;
             if (idUsuario == 0)
                 return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Token inválido." });
-                
+
             var usuario = await _context.Usuarios.FindAsync(idUsuario);
             if (usuario == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Usuario no encontrado." });
 
@@ -219,6 +219,9 @@ public class UsuariosController : ControllerBase
     [Authorize]
     public async Task<IActionResult> ActualizarUsuario(UsuarioActualizarDto actualizarDto)
     {
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
         var usuarioEnDB = await _context.Usuarios.FindAsync(idToken);
@@ -261,6 +264,9 @@ public class UsuariosController : ControllerBase
     [Authorize]
     public async Task<IActionResult> EliminarUsuario()
     {
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
         var usuarioEnDb = await _context.Usuarios.FindAsync(idToken);
@@ -311,4 +317,68 @@ public class UsuariosController : ControllerBase
         });
 
     }
+
+    //GET: api/usuarios/{id}
+    [HttpGet("perfil")]
+    [Authorize]
+    public async Task<ActionResult<UsuarioLeerDto>> GetPerfilPropio()
+    {
+
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
+        var idClam = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(idClam) || !int.TryParse(idClam, out var usuarioId))
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
+        var usuario = await _context.Usuarios
+            .Where(u => u.Id == usuarioId)
+            .Select(u => new UsuarioLeerDto
+            {
+                NombreUsuario = u.NombreUsuario,
+                Correo = u.Correo,
+                Proyectos = u.Proyectos.Select(p => new ProyectoReadDto
+                {
+                    Id = p.Id,
+                    Titulo = p.Titulo,
+                    Descripcion = p.Descripcion,
+                    UrlRepositorio = p.UrlRepositorio,
+                    UrlDemo = p.UrlDemo,
+                    Tecnologias = p.ProyectoTecnologias.Select(pt => pt.Tecnologia!.Nombre).ToList(),
+                    Imagenes = p.ProyectoImagenes.Select(pi => new ProyectoImagenDto
+                    {
+                        Id = pi.Id,
+                        Url = pi.Url
+                    }).ToList()
+                }).ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (usuario == null)
+        {
+            return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "Usuario no encontrado." });
+        }
+
+        return Ok(new ApiResponse<UsuarioLeerDto>
+        {
+            Exito = true,
+            Mensaje = "Usuario obtenido correctamente.",
+            Datos = usuario
+        });
+
+    }
+
+    private bool ValidarAcceso()
+    {
+        var purposeClaim = User.FindFirst("Purpose")?.Value;
+
+        if (purposeClaim == "2FA" || purposeClaim == "ResetPassword")
+            return false;
+
+        return true;
+    }
+
+    private const string MensajeSinAcceso = "No tienes acceso a esta funcionalidad.";
+
 }

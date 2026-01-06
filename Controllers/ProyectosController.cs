@@ -57,6 +57,9 @@ public class ProyectosController : ControllerBase
     public async Task<ActionResult<ApiResponse<ProyectoReadDto>>> PostProyecto([FromForm] ProyectoCreacionDto proyectoDto)
     {
 
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         //Extraer el ID directamente del Token
         var idToken = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
@@ -131,6 +134,10 @@ public class ProyectosController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> DeleteProyecto(int id)
     {
+
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var proyecto = await _context.Proyectos.FindAsync(id);
 
         if (proyecto == null) return NotFound(new ApiResponse<string>
@@ -170,6 +177,10 @@ public class ProyectosController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> PutProyecto(int id, [FromForm] ProyectoActualizarDto proyectoDto, List<IFormFile>? nuevasImagenes)
     {
+
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var proyectoEnDb = await _context.Proyectos
             .Include(p => p.ProyectoTecnologias)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -251,6 +262,10 @@ public class ProyectosController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> EliminarImagen(int imagenId)
     {
+
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var imagen = await _context.ProyectoImagenes
             .Include(pi => pi.Proyecto)
             .FirstOrDefaultAsync(i => i.Id == imagenId);
@@ -277,5 +292,17 @@ public class ProyectosController : ControllerBase
         return Ok(new ApiResponse<string> { Exito = true, Mensaje = "La imagen se elimino correctamente." });
 
     }
+
+    private bool ValidarAcceso()
+    {
+        var purposeClaim = User.FindFirst("Purpose")?.Value;
+
+        if (purposeClaim == "2FA" || purposeClaim == "ResetPassword")
+            return false;
+
+        return true;
+    }
+
+    private const string MensajeSinAcceso = "No tienes acceso a esta funcionalidad.";
 
 }

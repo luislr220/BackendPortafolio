@@ -23,6 +23,9 @@ public class TecnologiasController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<IEnumerable<TecnologiaReadDto>>>> GetTecnologias()
     {
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var resultado = await _context.Tecnologias.Select(t => new TecnologiaReadDto
         {
             Id = t.Id,
@@ -42,6 +45,9 @@ public class TecnologiasController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<TecnologiaReadDto>>> PostTecnologia(TecnologiaDto tecnologiaDTO)
     {
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         //Validar si ya existe para evitar duplicados
         if (await _context.Tecnologias.AnyAsync(t => t.Nombre.ToLower() == tecnologiaDTO.Nombre.ToLower()))
         {
@@ -77,6 +83,9 @@ public class TecnologiasController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> PutTecnologia(int id, TecnologiaDto tecnologiaDTO)
     {
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var tecnologiaEnDb = await _context.Tecnologias.FindAsync(id);
         if (tecnologiaEnDb == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "La tecnología no existe." });
 
@@ -98,6 +107,9 @@ public class TecnologiasController : ControllerBase
     [Authorize]
     public async Task<ActionResult<ApiResponse<string>>> DeleteTecnologia(int id)
     {
+        if (!ValidarAcceso())
+            return Unauthorized(new ApiResponse<string> { Exito = false, Mensaje = MensajeSinAcceso });
+
         var tecnologia = await _context.Tecnologias.FindAsync(id);
         if (tecnologia == null) return NotFound(new ApiResponse<string> { Exito = false, Mensaje = "La tenología no se encontro." });
 
@@ -110,4 +122,16 @@ public class TecnologiasController : ControllerBase
             Mensaje = $"La tecnología '{tecnologia.Nombre}' ha sido eliminada correctamente."
         });
     }
+
+    private bool ValidarAcceso()
+    {
+        var purposeClaim = User.FindFirst("Purpose")?.Value;
+
+        if (purposeClaim == "2FA" || purposeClaim == "ResetPassword")
+            return false;
+
+        return true;
+    }
+
+    private const string MensajeSinAcceso = "No tienes acceso a esta funcionalidad.";
 }
