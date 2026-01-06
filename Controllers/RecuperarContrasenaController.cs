@@ -39,7 +39,7 @@ public class RecuperarContrasenaController : ControllerBase
         var verificacion = new Verificacion2Fa
         {
             UsuarioId = usuario.Id,
-            Codigo = codigoGenerado,
+            Codigo = BCrypt.Net.BCrypt.HashPassword(codigoGenerado),
             Expiracion = DateTime.UtcNow.AddMinutes(5),
             Usado = false
         };
@@ -75,16 +75,19 @@ public class RecuperarContrasenaController : ControllerBase
         if (usuario == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No se ha encontrado esta cuenta." });
 
         var verificacion = await _context.Verificacion2Fas
-            .Where(v => v.UsuarioId == usuario.Id && v.Codigo == confirmarRecuperacionDto.Codigo && !v.Usado)
+            .Where(v => v.UsuarioId == usuario.Id && !v.Usado)
             .OrderByDescending(v => v.Expiracion)
             .FirstOrDefaultAsync();
 
-        if (verificacion == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No hay un código pendiente." });
+        if (verificacion == null)
+            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No hay un código pendiente." });
 
         if (verificacion.Expiracion < DateTime.UtcNow)
-        {
             return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "El código ha expirado." });
-        }
+
+        if (!BCrypt.Net.BCrypt.Verify(confirmarRecuperacionDto.Codigo, verificacion.Codigo))
+            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código incorrecto." });
+
 
         verificacion.Usado = true;
         await _context.SaveChangesAsync();
@@ -125,7 +128,7 @@ public class RecuperarContrasenaController : ControllerBase
 
         try
         {
-            var principal = tokenHandler.ValidateToken(cambiarContrasenaDto.tokenJwt, new TokenValidationParameters
+            var principal = tokenHandler.ValidateToken(cambiarContrasenaDto.TokenJwt, new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(key),

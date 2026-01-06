@@ -5,7 +5,7 @@ namespace BackendPortafolio.DTOs;
 public class CambiarContrasenaDto
 {
     [Required(ErrorMessage = "El token JWT es obligatorio.")]
-    public string tokenJwt { get; set; } = string.Empty;
+    public string TokenJwt { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "La nueva contraseña es obligatoria.")]
     public string NuevaContrasena { get; set; } = string.Empty;

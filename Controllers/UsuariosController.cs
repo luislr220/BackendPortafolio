@@ -72,7 +72,7 @@ public class UsuariosController : ControllerBase
         var verificacion = new Verificacion2Fa
         {
             UsuarioId = usuario.Id,
-            Codigo = codigoGenerado,
+            Codigo = BCrypt.Net.BCrypt.HashPassword(codigoGenerado),
             Expiracion = DateTime.UtcNow.AddMinutes(5),
             Usado = false
         };
@@ -93,59 +93,18 @@ public class UsuariosController : ControllerBase
 
         await _emailService.EnviarCorreoAsync(loginDto.Correo, asunto, "Email2fa", datosCorreo);
 
-        return Ok(new ApiResponse<object>
-        {
-            Exito = true,
-            Mensaje = "Código de verificación enviado al correo. Por favor revisa tu correo.",
-            Datos = new
-            {
-                usuarioId = usuario.Id,
-            }
-        });
-    }
-
-    [HttpPost("confirmar2fa")]
-    public async Task<ActionResult> Confirmar2fa(Confirmar2FaDto confirmar2FaDto)
-    {
-        //Buascar la verificación mas reciente que no haya sido usada
-        var verificacion = await _context.Verificacion2Fas
-            .Where(v => v.UsuarioId == confirmar2FaDto.UsuarioId && !v.Usado)
-            .OrderByDescending(v => v.Expiracion)
-            .FirstOrDefaultAsync();
-
-
-        if (verificacion == null)
-        {
-            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No hay un código pendiente" });
-        }
-
-        if (verificacion.Codigo != confirmar2FaDto.Codigo)
-        {
-            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código de verificación incorrecto." });
-        }
-        if (verificacion.Expiracion < DateTime.UtcNow)
-        {
-            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código de verificación expirado." });
-        }
-
-        verificacion.Usado = true;
-        await _context.SaveChangesAsync();
-
-        //Generar el token
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"]!);
-
-        var usuario = await _context.Usuarios.FindAsync(confirmar2FaDto.UsuarioId);
-        if (usuario == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Usuario no encontrado." });
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(new[]
-            {
-                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
-                new Claim(ClaimTypes.Email, usuario.Correo)
-            }),
-            Expires = DateTime.UtcNow.AddHours(8),
+          {
+              new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+              new Claim("Purpose","2FA")
+
+          }),
+            Expires = DateTime.UtcNow.AddMinutes(5),
             Issuer = _config["Jwt:Issuer"],
             Audience = _config["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
@@ -154,19 +113,105 @@ public class UsuariosController : ControllerBase
         var token = tokenHandler.CreateToken(tokenDescriptor);
         var tokenString = tokenHandler.WriteToken(token);
 
-        return Ok(
-            new ApiResponse<object>
+        return Ok(new ApiResponse<object>
+        {
+            Exito = true,
+            Mensaje = "Código de verificación enviado al correo. Por favor revisa tu correo.",
+            Datos = new
             {
-                Exito = true,
-                Mensaje = "Autenticación exitosa.",
-                Datos = new
-                {
-                    token = tokenString,
-                    Nombre = usuario.NombreUsuario,
-                    IdUsuario = usuario.Id
-                }
+                Token2Fa = tokenString
             }
-        );
+        });
+    }
+
+    [HttpPost("confirmar2fa")]
+    public async Task<ActionResult> Confirmar2fa(Confirmar2FaDto confirmar2FaDto)
+    {
+
+        //Generar el token
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.ASCII.GetBytes(_config["Jwt:Key"]!);
+
+        try
+        {
+
+            var principal = tokenHandler.ValidateToken(confirmar2FaDto.Token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = _config["Jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = _config["Jwt:Audience"],
+                ValidateLifetime = true
+            }, out _);
+
+            var purposeClaim = principal.FindFirst("Purpose")?.Value;
+            if (purposeClaim != "2FA")
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Token Invalido para esta operación." });
+
+            var usuarioIdStr = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var idUsuario = int.TryParse(usuarioIdStr, out var usuarioIdParsed) ? usuarioIdParsed : 0;
+            if (idUsuario == 0)
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Token inválido." });
+                
+            var usuario = await _context.Usuarios.FindAsync(idUsuario);
+            if (usuario == null) return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Usuario no encontrado." });
+
+            //Buascar la verificación mas reciente que no haya sido usada
+            var verificacion = await _context.Verificacion2Fas
+                .Where(v => v.UsuarioId == usuario.Id && !v.Usado)
+                .OrderByDescending(v => v.Expiracion)
+                .FirstOrDefaultAsync();
+
+
+            if (verificacion == null)
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "No hay un código pendiente" });
+
+            if (verificacion.Expiracion < DateTime.UtcNow)
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código de verificación expirado." });
+
+
+            if (!BCrypt.Net.BCrypt.Verify(confirmar2FaDto.Codigo, verificacion.Codigo))
+                return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Código de verificación incorrecto." });
+
+            verificacion.Usado = true;
+            await _context.SaveChangesAsync();
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new[]
+                {
+                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+                new Claim(ClaimTypes.Email, usuario.Correo)
+            }),
+                Expires = DateTime.UtcNow.AddHours(8),
+                Issuer = _config["Jwt:Issuer"],
+                Audience = _config["Jwt:Audience"],
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
+
+            return Ok(
+                new ApiResponse<object>
+                {
+                    Exito = true,
+                    Mensaje = "Autenticación exitosa.",
+                    Datos = new
+                    {
+                        token = tokenString,
+                        Nombre = usuario.NombreUsuario,
+                        IdUsuario = usuario.Id
+                    }
+                }
+            );
+        }
+        catch (System.Exception e)
+        {
+            return BadRequest(new ApiResponse<string> { Exito = false, Mensaje = "Error al validar el token: " + e.Message });
+        }
     }
 
     //PUT: api/usuarios/perfil
